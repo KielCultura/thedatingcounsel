@@ -1,5 +1,8 @@
-// Configuration
-const API_KEY = import.meta.env.VITE_GROQ_API_KEY || process.env.VITE_GROQ_API_KEY;
+// Configuration - Fixed for Vercel
+const API_KEY = window.location.hostname === 'localhost' 
+    ? 'test-key' 
+    : import.meta.env.VITE_GROQ_API_KEY;
+
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Counselor Definitions
@@ -51,8 +54,9 @@ async function getCounsel() {
         return;
     }
 
-    if (!API_KEY) {
-        showError('API key not configured. Please set VITE_GROQ_API_KEY in your environment.');
+    if (!API_KEY || API_KEY === 'test-key') {
+        showError('❌ API key not configured. Check your Vercel environment variables.');
+        console.log('API_KEY status:', API_KEY);
         return;
     }
 
@@ -79,8 +83,8 @@ async function getCounsel() {
         });
 
     } catch (error) {
-        console.error('Error:', error);
-        showError(error.message || 'Failed to get counsel. Please try again.');
+        console.error('Full error:', error);
+        showError(`❌ ${error.message}`);
     } finally {
         // Re-enable button
         submitBtn.disabled = false;
@@ -108,22 +112,28 @@ async function fetchCounselorResponse(counselorKey, situation) {
         temperature: 0.8
     };
 
-    const response = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
+    try {
+        const response = await fetch(GROQ_API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`${response.status}: ${errorData.error?.message || 'API Error'}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error(`Error from ${counselorKey}:`, errorData);
+            throw new Error(`${response.status}: ${errorData.error?.message || 'API Error'}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    } catch (error) {
+        console.error(`Fetch error for ${counselorKey}:`, error);
+        throw error;
     }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
 }
 
 function displayCounselorCard(key, counselor, response) {

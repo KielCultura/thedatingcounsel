@@ -1,27 +1,22 @@
-// Configuration - Get API key from window or environment
-const API_KEY = window.VITE_GROQ_API_KEY || import.meta.env?.VITE_GROQ_API_KEY;
-
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
 // Counselor Definitions
 const counselors = {
     delulu: {
         name: 'Delulu 💛',
         avatar: '✨',
         role: 'The Romantic Idealist',
-        systemPrompt: `You are Delulu, an overly romantic and delusional dating counselor. You always see the best in every situation and believe everyone will fall in love. Give short, enthusiastic, and unrealistically optimistic advice (2-3 sentences). Use lots of emojis. Act like everything is a fairy tale.`
+        key: 'delulu'
     },
     normal: {
         name: 'Normal 💗',
         avatar: '🧠',
         role: 'The Rational Advisor',
-        systemPrompt: `You are Normal, a practical and grounded dating counselor who gives sensible, mature advice. Be realistic about dating situations. Provide balanced, thoughtful guidance (2-3 sentences). Be honest but kind. Avoid being preachy.`
+        key: 'normal'
     },
     mysterious: {
         name: 'Mysterious 💜',
         avatar: '🔮',
         role: 'The Enigmatic Sage',
-        systemPrompt: `You are Mysterious, a vague and cryptic dating counselor. Speak in riddles, metaphors, and abstract wisdom. Your advice should be poetic but confusing (2-3 sentences). Never give direct answers. Use philosophical language.`
+        key: 'mysterious'
     }
 };
 
@@ -46,13 +41,6 @@ async function getCounsel() {
 
     if (!situation) {
         showError('Please share your dating situation first!');
-        return;
-    }
-
-    if (!API_KEY) {
-        showError('❌ API key not found. Make sure VITE_GROQ_API_KEY is set in Vercel environment variables.');
-        console.error('API_KEY:', API_KEY);
-        console.error('import.meta.env:', import.meta.env);
         return;
     }
 
@@ -84,40 +72,29 @@ async function getCounsel() {
 }
 
 async function fetchCounselorResponse(counselorKey, situation) {
-    const counselor = counselors[counselorKey];
-
-    const requestBody = {
-        model: 'mixtral-8x7b-32768',
-        messages: [
-            {
-                role: 'system',
-                content: counselor.systemPrompt
+    try {
+        const response = await fetch('/api/counsel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             },
-            {
-                role: 'user',
-                content: `Here's my dating situation: ${situation}`
-            }
-        ],
-        max_tokens: 200,
-        temperature: 0.8
-    };
+            body: JSON.stringify({
+                counselorKey: counselorKey,
+                situation: situation
+            })
+        });
 
-    const response = await fetch(GROQ_API_URL, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(requestBody)
-    });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Error: ${response.status}`);
+        }
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`API Error: ${errorData.error?.message || response.statusText}`);
+        const data = await response.json();
+        return data.response;
+    } catch (error) {
+        console.error(`Error for ${counselorKey}:`, error);
+        throw error;
     }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
 }
 
 function displayCounselorCard(key, counselor, response) {

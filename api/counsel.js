@@ -1,15 +1,17 @@
 export default async function handler(req, res) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { counselorKey, situation } = req.body;
   const API_KEY = process.env.GROQ_API_KEY;
 
   if (!API_KEY) {
-    return res.status(500).json({ error: 'API key not configured on server' });
+    return res.status(500).json({ 
+      error: 'API key not configured on server'
+    });
   }
+
+  const { counselorKey, situation } = req.body;
 
   const counselors = {
     delulu: `You are Delulu, an overly romantic and delusional dating counselor. You always see the best in every situation and believe everyone will fall in love. Give short, enthusiastic, and unrealistically optimistic advice (2-3 sentences). Use lots of emojis. Act like everything is a fairy tale.`,
@@ -25,7 +27,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           {
             role: 'system',
@@ -52,7 +54,7 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Groq API Error:', error);
     res.status(500).json({ error: error.message });
   }
 }
